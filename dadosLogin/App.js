@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Platform, StatusBar, ImageBackground } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { auth, firestore } from './firebaseConfig';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
@@ -13,45 +13,45 @@ export default function App() {
   const [mensagem, setMensagem] = useState('');
 
   useEffect(() => {
-    const atualizaUsuario = onAuthStateChanged(auth, (usuario) => {
-      setUsuario(usuario);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUsuario(user);
     });
-
-    return () => atualizaUsuario();
+    return () => unsubscribe();
   }, []);
 
   const cadastrar = () => {
     createUserWithEmailAndPassword(auth, email, senha)
-      .then(userCredential => {
+      .then((userCredential) => {
         setUsuario(userCredential.user);
         setEmail('');
         setSenha('');
       })
-      .catch(error => alert(error.message));
+      .catch((error) => alert(error.message));
   };
 
   const entrar = () => {
     signInWithEmailAndPassword(auth, email, senha)
-      .then(userCredential => {
+      .then((userCredential) => {
         setUsuario(userCredential.user);
         setEmail('');
         setSenha('');
       })
-      .catch(error => alert(error.message));
+      .catch((error) => alert(error.message));
   };
 
   const sair = () => {
     signOut(auth)
       .then(() => setUsuario(null))
-      .catch(error => alert(error.message));
+      .catch((error) => alert(error.message));
   };
 
   const enviarMensagem = async () => {
     if (titulo && mensagem && usuario) {
       try {
-        await addDoc(collection(firestore, 'messages'), {
-          title: titulo,
-          message: mensagem,
+        await addDoc(collection(firestore, 'notifications'), {
+          titulo,
+          mensagem,
+          lida: false,
           createdAt: serverTimestamp(),
           uid: usuario.uid
         });
@@ -64,11 +64,12 @@ export default function App() {
   };
 
   return (
-    <ImageBackground source={require('./assets/bground.png')} style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       {usuario ? (
-        <>
-          <Text style={styles.welcomeText}>Bem-vindo, {usuario.email}</Text>
+        <View style={styles.messageContainer}>
+          <Text style={styles.messageTitle}>Notificação</Text>
+          <Text style={styles.messageSubtitle}>Escreva aqui sua mensagem</Text>
           <TextInput
             style={styles.input}
             placeholder="Título"
@@ -76,46 +77,49 @@ export default function App() {
             onChangeText={setTitulo}
           />
           <TextInput
-            style={styles.input}
-            placeholder="Mensagem"
+            style={[styles.input, styles.inputMessage]}
+            placeholder="Descrição"
             value={mensagem}
             onChangeText={setMensagem}
+            multiline
           />
-          <TouchableOpacity style={styles.botao} onPress={enviarMensagem}>
-            <MaterialIcons name="send" size={24} color="white" />
+          <TouchableOpacity style={styles.botaoEnviar} onPress={enviarMensagem}>
             <Text style={styles.botaoTexto}>Enviar Mensagem</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.botaoSair} onPress={sair}>
-            <MaterialIcons name="logout" size={24} color="white" />
             <Text style={styles.botaoTexto}>Sair</Text>
           </TouchableOpacity>
-        </>
+        </View>
       ) : (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            value={senha}
-            onChangeText={setSenha}
-            secureTextEntry
-          />
-          <TouchableOpacity style={styles.botao} onPress={cadastrar}>
-            <MaterialIcons name="person-add" size={24} color="white" />
+        <View style={styles.authContainer}>
+          <Text style={styles.title}>Bem-vindo</Text>
+          <Text style={styles.subtitle}>Cadastre-se ou faça login para enviar notificações</Text>
+          <View style={styles.inputs}>
+            <Text style={styles.identificacao}>E-mail</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Insira seu e-mail"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <Text style={styles.identificacao}>Senha</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Insira sua senha"
+              value={senha}
+              onChangeText={setSenha}
+              secureTextEntry
+            />
+          </View>
+          <TouchableOpacity style={styles.botaoCadastrar} onPress={cadastrar}>
             <Text style={styles.botaoTexto}>Cadastrar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.botao} onPress={entrar}>
-            <MaterialIcons name="login" size={24} color="white" />
+          <TouchableOpacity style={styles.botaoEntrar} onPress={entrar}>
             <Text style={styles.botaoTexto}>Entrar</Text>
           </TouchableOpacity>
-        </>
+        </View>
       )}
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -123,54 +127,113 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: '#fff',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 20,
   },
-  welcomeText: {
-    fontSize: 24,
+  authContainer: {
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#A73C3C',
+    borderTopLeftRadius: 50,
+    borderTopRightRadius: 50,
+    flex: 2,
+  },
+  messageContainer: {
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#A73C3C',
+    borderTopLeftRadius: 50,
+    borderTopRightRadius: 50,
+    flex: 2,
+    paddingHorizontal: 20,
+  },
+  messageTitle: {
+    marginTop: 50,
+    fontSize: 28,
+    color: '#fff',
     fontWeight: 'bold',
+  },
+  messageSubtitle: {
+    fontSize: 16,
+    color: '#fff',
     marginBottom: 20,
-    color: '#333',
-    elevation: 4,
+  },
+  title: {
+    marginTop: '12%',
+    fontSize: 28,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  subtitle: {
+    width: 270,
+    color: '#fff',
+    textAlign: 'center',
+    alignSelf: 'center',
+    fontSize: 17,
+    marginBottom: 20,
+  },
+  inputs: {
+    width: '100%',
+    paddingLeft: 25,
+    paddingRight: 25,
+  },
+  identificacao: {
+    color: '#FFF',
+    fontSize: 17,
+    marginBottom: 10,
+    marginLeft: 10,
+    fontWeight: 'bold',
   },
   input: {
-    fontSize: 20,
+    fontSize: 16,
     width: '100%',
     padding: 15,
-    marginBottom: 10,
+    paddingLeft: 30,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    elevation: 2,
+    borderRadius: 23,
+    backgroundColor: '#FFF',
   },
-  botao: {
-    backgroundColor: '#4CAF50',
+  inputMessage: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  botaoEnviar: {
+    backgroundColor: '#4B0707',
+    marginTop: 20,
     padding: 15,
-    borderRadius: 10,
-    width: '100%',
+    borderRadius: 23,
+    width: '88%',
     alignItems: 'center',
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    elevation: 3,
+  },
+  botaoCadastrar: {
+    backgroundColor: '#4B0707',
+    marginTop: 15,
+    padding: 15,
+    borderRadius: 23,
+    width: '88%',
+    alignItems: 'center',
   },
   botaoSair: {
-    backgroundColor: '#f44336',
+    backgroundColor: '#4B0707',
+    marginTop: 15,
     padding: 15,
-    borderRadius: 10,
-    width: '100%',
+    borderRadius: 23,
+    width: '88%',
     alignItems: 'center',
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    elevation: 3,
+  },
+  botaoEntrar: {
+    backgroundColor: '#4B0707',
+    marginTop: 20,
+    padding: 15,
+    borderRadius: 23,
+    width: '88%',
+    alignItems: 'center',
   },
   botaoTexto: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#FFF',
+    fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 10,
   },
 });
